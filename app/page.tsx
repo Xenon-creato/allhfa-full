@@ -1,143 +1,117 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSession, signIn } from "next-auth/react";
 
 export default function Home() {
-  const [isAdult, setIsAdult] = useState<boolean | null>(null);
   const [prompt, setPrompt] = useState("");
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const MAX_GENERATIONS = 5;
-  const [generationsLeft, setGenerationsLeft] = useState<number | null>(null);
-  const [canRetry, setCanRetry] = useState(false);
-  const [isUnlocked, setIsUnlocked] = useState(false);
 
-  // ---- AGE CHECK ----
-  useEffect(() => {
-    const stored = localStorage.getItem("isAdult");
-    if (stored === "true") {
-      setIsAdult(true);
-    } else {
-      setIsAdult(false);
-    }
-    const storedGenerations = localStorage.getItem("generationsLeft");
-    if (storedGenerations) {
-      setGenerationsLeft(Number(storedGenerations));
-    } else {
-      localStorage.setItem("generationsLeft", String(MAX_GENERATIONS));
-      setGenerationsLeft(MAX_GENERATIONS);
-    }
+  const { data: session } = useSession();
 
-  }, []);
+  // ✅ FIX 1: initialize age gate from localStorage
 
-  const confirmAge = () => {
-    localStorage.setItem("isAdult", "true");
-    setIsAdult(true);
+  const bannedWords = [
+    "child",
+    "kid",
+    "minor",
+    "underage",
+    "loli",
+    "teen",
+    "rape",
+    "incest",
+    "bestiality",
+    "celeberty",
+  ];
+
+  const presets = [
+    {
+      label: "Anime Girl",
+      prompt: "anime girl, detailed, high quality, 18+, safe, studio lighting",
+    },
+    {
+      label: "Cyberpunk",
+      prompt:
+        "cyberpunk anime girl, neon lights, futuristic city, 18+, ultra detailed",
+    },
+    {
+      label: "Fantasy",
+      prompt:
+        "fantasy anime girl, magic, cinematic lighting, 18+, detailed illustration",
+    },
+    {
+      label: "Realistic",
+      prompt:
+        "realistic portrait of an adult woman, 18+, ultra realistic, high detail",
+    },
+    {
+      label: "Hentai",
+      prompt: "Create an image from popular Hentai in erotic pose, 18+",
+    },
+  ];
+
+  
+  const buy = async (packageId: string) => {
+    const res = await fetch("/api/payments/create", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ packageId }),
+    });
+
+    const data = await res.json();
+    window.location.href = data.url;
   };
 
-  const leaveSite = () => {
-    window.location.href = "https://www.google.com";
-  };
-
-  // ---- GENERATION ----
   const generateImage = async () => {
-    if (!isUnlocked && generationsLeft !== null && generationsLeft <= 0) {
-      setError("Free limit reached. Unlock unlimited access.");
+    if (!session) {
+      setError("You must be logged in to generate images.");
       return;
     }
 
-    setCanRetry(false);
     if (!prompt.trim() || loading) return;
+
+    const lowerPrompt = prompt.toLowerCase();
+    if (bannedWords.some((word) => lowerPrompt.includes(word))) {
+      setError("This prompt violates our content policy.");
+      return;
+    }
 
     setLoading(true);
     setError("");
     setImageUrl(null);
 
-    try {
-      const res = await fetch("/api/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt }),
-      });
+  try {
+    const res = await fetch("/api/generate", {
+      method: "POST",
+      credentials: "include", // 🔥 КРИТИЧНО ВАЖЛИВО
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ prompt }),
+    });
 
-      const data = await res.json();
-      console.log("API response:", res.status, data);
-      if (!res.ok) {
-        if (res.status === 401) {
-          throw new Error("Service unavailable. Please try later.");
-        }
+    const data = await res.json();
 
-        if (res.status === 429) {
-          throw new Error("Generation limit reached.");
-        }
-
-        throw new Error(
-        data?.message ||
-        data?.error?.message ||
-        data?.error ||
-        "Image generation failed"
-      );
-
-      }
-
-      if (!data.imageUrl) {
-        throw new Error("Image was not generated");
-      }
-
-      setImageUrl(data.imageUrl);
-
-      if (generationsLeft !== null) {
-        const newValue = generationsLeft - 1;
-        setGenerationsLeft(newValue);
-        localStorage.setItem("generationsLeft", String(newValue));
-      }
-
+    if (!res.ok) {
+      throw new Error(data?.error || "Image generation failed");
     }
-      catch (err: any) {
-        setError(err?.message || "Generation failed");
-        setCanRetry(true);
-      }
-      finally {
-        setLoading(false);
-      }
-};
 
+    if (!data?.imageUrl) {
+      throw new Error("Image was not generated");
+    }
 
-  // ---- LOADING STATE WHILE CHECKING AGE ----
-  if (isAdult === null) return null;
-
-  // ---- AGE GATE ----
-  if (!isAdult) {
-    return (
-      <main className="min-h-screen flex items-center justify-center bg-black text-white">
-        <div className="max-w-md text-center p-8 border border-zinc-800 rounded-xl">
-          <h1 className="text-2xl font-bold mb-4">18+ Warning</h1>
-          <p className="text-zinc-400 mb-6">
-            This website contains adult content.
-            <br />
-            You must be at least 18 years old to continue.
-          </p>
-
-          <button
-            onClick={confirmAge}
-            className="w-full px-6 py-3 bg-red-600 rounded-lg font-semibold hover:bg-red-700 transition"
-          >
-            I am 18 or older
-          </button>
-
-          <button
-            onClick={leaveSite}
-            className="w-full mt-4 px-6 py-3 bg-zinc-700 rounded-lg font-semibold hover:bg-zinc-600 transition"
-          >
-            Leave / Return
-          </button>
-        </div>
-      </main>
-    );
+    setImageUrl(data.imageUrl);
+  } catch (err: any) {
+    console.error("Generate error:", err);
+    setError(err?.message || "Generation failed");
+  } finally {
+    setLoading(false);
   }
+}
 
-  // ---- MAIN APP ----
+
   return (
     <main className="min-h-screen bg-black text-white p-8">
       <div className="max-w-xl mx-auto">
@@ -148,89 +122,87 @@ export default function Home() {
         <textarea
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
+          disabled={loading}
           placeholder="Describe the image you want..."
           className="w-full p-4 rounded-lg bg-zinc-900 border border-zinc-700 mb-4"
           rows={4}
         />
 
-        <button
-          onClick={generateImage}
-          disabled={loading || (!isUnlocked && generationsLeft === 0)}
-          className={`w-full px-6 py-3 rounded-lg font-semibold transition
-            ${
-              loading
-                ? "bg-zinc-600 cursor-not-allowed"
-                : "bg-red-600 hover:bg-red-700"
-            }
-          `}
-        >
-        {generationsLeft !== null && (
-          <p className="text-zinc-400 mt-2 text-sm text-center">
-            Free generations left: {generationsLeft}
-          </p>
-        )}
-        {generationsLeft === 0 && (
-          <p className="text-red-500 mt-2 text-sm text-center">
-            Free limit reached. Upgrade to continue.
-          </p>
-        )}
-        {generationsLeft === 0 && !isUnlocked && (
-        <button
-          onClick={() => {
-            setIsUnlocked(true);
-            setError("");
-          }}
-          className="mt-3 w-full px-6 py-3 bg-green-600 rounded-lg font-semibold hover:bg-green-700 transition"
-        >
-          Unlock unlimited (demo)
-        </button>
+        <p className="text-zinc-500 text-xs mb-3 text-center">
+          All generated characters must be 18+. Illegal content is not allowed.
+        </p>
+
+        <div className="flex flex-wrap gap-2 mb-4">
+          {presets.map((preset) => (
+            <button
+              key={preset.label}
+              onClick={() => {
+                setPrompt(preset.prompt);
+                setError("");
+              }}
+              className="px-3 py-1 text-sm rounded-full bg-zinc-800 hover:bg-zinc-700 transition"
+            >
+              {preset.label}
+            </button>
+          ))}
+        </div>
+
+        {!session && (
+          <button
+            onClick={() => signIn("google")}
+            className="w-full mb-4 px-6 py-3 rounded-lg font-semibold bg-blue-600 hover:bg-blue-700 transition"
+          >
+            Sign in to generate images
+          </button>
         )}
 
+        {/* ✅ FIX 3: text moved OUTSIDE button */}
+        <p className="text-zinc-500 text-xs text-center mb-2">
+          Quick styles — click to auto-fill prompt
+        </p>
+
+        <button
+          onClick={generateImage}
+          disabled={!session || loading}
+          className={`w-full px-6 py-3 rounded-lg font-semibold transition ${
+            loading
+              ? "bg-zinc-600 cursor-not-allowed"
+              : "bg-red-600 hover:bg-red-700"
+          }`}
+        >
           {loading ? "Generating..." : "Generate Image"}
         </button>
+
         {error && (
           <p className="text-red-500 mt-4 text-sm text-center">{error}</p>
         )}
-        {canRetry && (
-          <button
-            onClick={generateImage}
-            className="mt-3 w-full px-6 py-2 bg-zinc-700 rounded-lg text-sm hover:bg-zinc-600 transition"
-          >
-            Retry
-          </button>
-        )}
-        {isUnlocked && (
-          <p className="text-green-500 mt-2 text-sm text-center">
-            Unlimited access unlocked
-          </p>
-        )}
-
-        {loading && (
-          <p className="text-zinc-400 mt-4 text-center animate-pulse">
-            AI is generating your image...
-          </p>
-        )}
 
         <div className="mt-8 w-full h-[420px] border border-zinc-700 rounded-xl flex items-center justify-center bg-zinc-900">
-          {loading && (
-            <p className="text-zinc-400 animate-pulse">
-              Generating image...
-            </p>
-          )}
-
           {!loading && imageUrl && (
             <img
               src={imageUrl}
               alt="Generated"
-              className="max-h-full max-w-full rounded-lg"
+              onLoad={async () => {
+                // ✅ картинка реально завантажилась
+                await fetch("/api/generate/confirm", {
+                  method: "POST",
+                });
+              }}
+              onError={() => {
+                // ❌ користувач НЕ бачить картинку
+                alert("Сайт наразі не працює. Спробуйте пізніше.");
+              }}
             />
           )}
-
           {!loading && !imageUrl && (
             <p className="text-zinc-600 text-sm">
               Your generated image will appear here
             </p>
           )}
+        </div>
+        <div className="mt-6 text-center text-sm text-zinc-500">
+          We suggest that you formulate your request as precisely as possible 
+          so that the image turns out as clear as possible. This is just our suggestion.
         </div>
       </div>
     </main>

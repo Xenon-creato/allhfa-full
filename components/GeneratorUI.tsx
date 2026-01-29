@@ -10,24 +10,27 @@ export default function GeneratorUI() {
 
   const handleGenerate = async () => {
     if (!prompt.trim()) return;
-
+    
     setIsGenerating(true);
     setError(null);
     setImageUrl(null);
 
     try {
-      const res = await fetch("/api/generate", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ prompt }),
-      });
+    const res = await fetch("/api/generate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ prompt }),
+    });
+    if (res.status === 402) {
+      setError("You are out of credits. Please upgrade.");
+      return;
+    }
 
-      if (!res.ok) {
-        throw new Error("Generation failed");
-      }
-
+    if (res.status === 401) {
+      setError("Please sign in to generate images");
+      return;
+    }
+    
       const data = await res.json();
       setImageUrl(data.imageUrl);
     } catch (err) {
@@ -36,7 +39,7 @@ export default function GeneratorUI() {
       setIsGenerating(false);
     }
   };
-
+  
   return (
     <div className="mx-auto w-full max-w-3xl space-y-6 p-6">
       <h2 className="text-3xl font-bold text-center">
