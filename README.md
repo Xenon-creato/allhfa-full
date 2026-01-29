@@ -1,0 +1,2 @@
+# allhfa.com
+ai-generator
