@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 export default function TermsPage() {
   return (
     <main className="min-h-screen bg-black text-zinc-200">

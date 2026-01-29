@@ -1,12 +1,13 @@
 "use client";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
+export const dynamic = "force-dynamic";
 
 const PACKAGES = [ { id: "starter_10", title: "Starter", price: 10.5, credits: 80, desc: "Try the service", }, { id: "basic_15", title: "Basic", price: 15, credits: 160, desc: "For regular users", popular: true, }, { id: "pro_25", title: "Pro", price: 25, credits: 400, desc: "Best value", }, { id: "ultimate_35", title: "Ultimate", price: 35, credits: 900, desc: "For heavy users", }, ];
 export default function PricingPage() {
   const { data: session } = useSession();
   const router = useRouter();
-
+  
   // BUY Crypto (NOWPayments)
   const buyCrypto = async (packageId: string) => {
     try {

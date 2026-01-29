@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 export default function RefundPage() {
   return (
     <main className="min-h-screen bg-black text-zinc-200">
