@@ -38,6 +38,9 @@ export default function TopBar() {
             <Link href="/privacy" className="hover:text-white transition">
               Privacy
             </Link>
+            <Link href="/refund" className="hover:text-white transition">
+              Refund
+            </Link>
           </nav>
         </div>
 

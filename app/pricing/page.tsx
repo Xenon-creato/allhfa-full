@@ -56,7 +56,7 @@ export default function PricingPage() {
       <div className="max-w-3xl mx-auto">
         <h1 className="text-3xl font-bold text-center mb-3">Buy Credits</h1>
         <p className="text-zinc-400 text-center">Pay only for what you use. No subscriptions.</p>
-
+        <p className="text-zinc-400 text-center">Credits can be used to generate AI images. One generation costs 1 credits.</p>
         <div className="space-y-4 mt-10">
           {PACKAGES.map((p) => (
             <div
