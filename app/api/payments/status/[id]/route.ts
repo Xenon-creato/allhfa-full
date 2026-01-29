@@ -1,11 +1,17 @@
 import { prisma } from "@/lib/prisma"
+import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(
   req: Request,
-  context: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
-  const { id } = context.params
-
+  const { id } = await context.params;
+  const payment = await prisma.payment.findUnique({
+    where: { orderId: id },
+    select: {
+      status: true,
+    },
+  })
   if (!id) {
     return Response.json(
       { error: "Missing order id" },
@@ -13,12 +19,7 @@ export async function GET(
     )
   }
 
-  const payment = await prisma.payment.findUnique({
-    where: { orderId: id },
-    select: {
-      status: true,
-    },
-  })
+
 
   if (!payment) {
     return Response.json(

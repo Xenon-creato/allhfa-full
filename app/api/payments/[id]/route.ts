@@ -1,26 +1,24 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse, NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 
 export async function GET(
-  request: NextRequest,
-  { params }: { params: { id: string } }
+  _req: NextRequest,
+  context: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await context.params;
+
   const payment = await prisma.payment.findUnique({
-    where: { orderId: params.id },
-    select: {
-      amount: true,
-      currency: true,
-      invoiceUrl: true,
-      status: true,
-    },
+    where: { id },
   });
 
   if (!payment) {
-    return NextResponse.json(
-      { error: "Payment not found" },
-      { status: 404 }
-    );
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  return NextResponse.json(payment);
+  return NextResponse.json({
+    amount: payment.amount,
+    currency: payment.currency,
+    invoiceUrl: payment.invoiceUrl,
+    status: payment.status,
+  });
 }
