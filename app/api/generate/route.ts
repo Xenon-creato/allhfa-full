@@ -7,9 +7,110 @@ import { fal, ApiError } from "@fal-ai/client";
 
 export const runtime = "nodejs";
 
+
+
+export async function POST(req: Request) {
+  const session = await getServerSession(authOptions);
+
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  if (!process.env.FAL_KEY) {
+    return NextResponse.json(
+      { error: "The site is currently not working. Please come back later." },
+      { status: 503 }
+    );
+  }
+
+  const { prompt } = await req.json();
+  if (!prompt) {
+    return NextResponse.json({ error: "Prompt is required" }, { status: 400 });
+  }
+
+  // ================= USER & CREDITS CHECK =================
+  const user = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { id: true, credits: true },
+  });
+
+  if (!user) {
+    return NextResponse.json({ error: "User not found" }, { status: 404 });
+  }
+
+  if (user.credits <= 0) {
+    return NextResponse.json({ error: "Not enough credits" }, { status: 402 });
+  }
+
+  // ================= AI GENERATION =================
+  let imageBuffer: Buffer;
+  try {
+    console.log("Starting generation with Fal.ai for prompt:", prompt);
+
+    const result = await fal.run("fal-ai/flux/dev", {
+      input: {
+        prompt,
+        image_size: "landscape_4_3",
+      },
+    });
+
+    const anyResult: any = result; // ⚠ приводимо до any, бо SDK не має точних типів
+    const imageUrl = anyResult?.output?.[0]?.url; // новий формат: output[0].url
+
+    if (!imageUrl) {
+      return NextResponse.json(
+        { error: "The site is currently not working. Please come back later." },
+        { status: 503 }
+      );
+    }
+
+    const imageRes = await fetch(imageUrl);
+    if (!imageRes.ok) throw new Error("Failed to fetch generated image");
+    const arrayBuffer = await imageRes.arrayBuffer();
+    imageBuffer = Buffer.from(arrayBuffer);
+
+  } catch (err: any) {
+    console.error("Fal.ai Error:", err);
+
+    if (err instanceof ApiError && err.status === 401) {
+      return NextResponse.json(
+        { error: "The site is currently not working. Please come back later." },
+        { status: 503 }
+      );
+    }
+
+    return NextResponse.json({ error: err.message || "AI generation failed" }, { status: 503 });
+  }
+
+  // ================= R2 UPLOAD =================
+  let finalImageUrl: string;
+  try {
+    const key = `users/${user.id}/${Date.now()}.png`;
+    finalImageUrl = await uploadImage({
+      buffer: imageBuffer,
+      key,
+      contentType: "image/png",
+    });
+  } catch (err) {
+    console.error("R2 upload failed:", err);
+    return NextResponse.json({ error: "Storage upload failed" }, { status: 503 });
+  }
+
+  // ================= DB WRITE =================
+  const image = await prisma.image.create({
+    data: {
+      userId: user.id,
+      prompt,
+      imageUrl: finalImageUrl,
+    },
+  });
+
+  return NextResponse.json({ image });
+}
+
+/*
 // Налаштовуємо Fal (шукає FAL_KEY у .env)
 fal.config({ credentials: process.env.FAL_KEY });
-
 export async function POST(req: Request) {
   try {
     // ================= AUTH CHECK =================
@@ -112,3 +213,4 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }
+*/
