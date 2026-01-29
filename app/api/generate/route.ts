@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { uploadImage } from "@/lib/r2";
-import * as fal from "@fal-ai/serverless-client"; // Імпортуємо Fal
+import { fal } from "@fal-ai/client"; // Імпортуємо Fal
 
 export const runtime = "nodejs";
 
@@ -38,51 +38,34 @@ export async function POST(req: Request) {
     let imageBuffer: Buffer;
     
     try {
-      // Виклик моделі Flux Dev (або будь-якої іншої на fal)
-    const response = await fetch("https://fal.run/fal-ai/flux/dev", {
-        method: "POST",
-        headers: {
-          "Authorization": `Key ${process.env.FAL_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          prompt: prompt,
+      // Виклик моделі через новий клієнт @fal-ai/client
+      const result = await fal.subscribe("fal-ai/flux/dev", {
+        input: {
+          prompt,
           image_size: "landscape_4_3",
-        }),
+        },
+        logs: true, // щоб бачити логи запиту
       });
 
-      // Обробка помилок авторизації або балансу (401)
-      if (response.status === 401) {
-        console.error("FAL_KEY is invalid or balance is empty (401).");
-        return NextResponse.json(
-          { error: "The site is currently not working. Please come back later." },
-          { status: 503 } // Повертаємо 503 (Service Unavailable)
-        );
+      if (!result.data || !result.data[0]?.url) {
+        throw new Error("No image returned from Fal.ai");
       }
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || "Fal API failed");
-      }
-      console.log("STEP 1: session ok");
-      console.log("STEP 2: user", user.id);
-      console.log("STEP 3: calling FAL");
-      console.log("STEP 4: got image");
-      console.log("STEP 5: uploaded to R2");
 
-      const result = await response.json();
-      const imageUrl = result.images[0].url;
-
-      // Завантаження картинки
+      // Беремо перший результат і конвертуємо в Buffer
+      const imageUrl = result.data[0].url;
       const imageRes = await fetch(imageUrl);
       const arrayBuffer = await imageRes.arrayBuffer();
       imageBuffer = Buffer.from(arrayBuffer);
 
-
-      // Завантажуємо зображення з сервера Fal, щоб перетворити в Buffer для R2
-
       if (!imageRes.ok) throw new Error("Failed to fetch generated image");
-      
+
+      console.log("STEP 1: session ok");
+      console.log("STEP 2: user", user.id);
+      console.log("STEP 3: called Fal.ai");
+      console.log("STEP 4: got image");
+      console.log("STEP 5: uploaded to R2");
+
     } catch (err: any) {
       console.error("Fal.ai Error:", err);
       return NextResponse.json(
