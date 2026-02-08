@@ -13,7 +13,7 @@ export default function TopBar() {
         {/* LEFT */}
         <div className="flex items-center gap-8">
           <Link href="/" className="text-xl font-bold text-white">
-            AI Anime Gen
+            Allhfa ai
           </Link>
 
           {/* NAV LINKS */}

@@ -47,7 +47,7 @@ export default function Home() {
         "realistic portrait of an adult woman, 18+, ultra realistic, high detail",
     },
     {
-      label: "Hentai",
+      label: "Anime 2.0",
       prompt: "Create an image from popular Hentai in erotic pose, 18+",
     },
   ];
@@ -116,7 +116,7 @@ export default function Home() {
     <main className="min-h-screen bg-black text-white p-8">
       <div className="max-w-xl mx-auto">
         <h1 className="text-3xl font-bold mb-6 text-center">
-          AI Image Generator
+          Allhfa ai
         </h1>
 
         <textarea

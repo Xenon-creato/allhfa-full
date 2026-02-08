@@ -30,7 +30,6 @@ export const authOptions = {
         session.user.id = token.id as string;
       }
 
-      console.log("SESSION USER ID:", session.user?.id);
       return session;
     },
   }

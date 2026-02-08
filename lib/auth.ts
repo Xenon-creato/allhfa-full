@@ -47,7 +47,6 @@ callbacks: {
     async jwt({ token, user }) {
       // user з'являється тут ТІЛЬКИ в момент першого входу
       if (user) {
-        console.log("JWT CALLBACK - USER ID FOUND:", user.id);
         token.id = user.id;
       }
       return token;
@@ -56,7 +55,6 @@ callbacks: {
     async session({ session, token }) {
       if (session.user && token) {
         session.user.id = token.id as string;
-        console.log("SESSION CALLBACK - SETTING ID:", session.user.id);
       }
       return session;
     },

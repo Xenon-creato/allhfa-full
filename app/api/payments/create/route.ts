@@ -76,8 +76,6 @@ export async function POST(req: NextRequest) {
 
     
     const npData = await npRes.json();
-    console.log("NOWPAYMENTS STATUS:", npRes.status);
-    console.log("NOWPAYMENTS RESPONSE:", npData);
 
     if (!npRes.ok || !npData.id || !npData.invoice_url) {
       console.error("NOWPAYMENTS ERROR:", npData);

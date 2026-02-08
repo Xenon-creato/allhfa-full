@@ -27,7 +27,6 @@ export async function POST(req: NextRequest) {
 
 
   const data = JSON.parse(rawBody);
-  console.log("NOWPayments IPN:", data);
 
   const { payment_status, order_id, payment_id } = data;
 
@@ -80,6 +79,5 @@ export async function POST(req: NextRequest) {
     });
   });
 
-  console.log("✅ Payment processed correctly");
   return NextResponse.json({ ok: true });
 }

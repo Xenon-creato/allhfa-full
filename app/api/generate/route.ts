@@ -4,11 +4,13 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { uploadImage } from "@/lib/r2";
 import { fal, ApiError } from "@fal-ai/client";
-
+import { rateLimit } from "@/lib/rate-limit";
 export const runtime = "nodejs";
 
 fal.config({ credentials: process.env.FAL_KEY });
 export async function POST(req: Request) {
+  const limit = rateLimit(req);
+  if (limit) return limit; // якщо ліміт перевищено, поверне 429
   try {
     // ================= AUTH CHECK =================
     const session = await getServerSession(authOptions);
@@ -38,7 +40,6 @@ export async function POST(req: Request) {
     // ================= AI GENERATION =================
     let imageBuffer: Buffer;
     try {
-      console.log("Starting generation with Fal.ai for prompt:", prompt);
 
       const result = await fal.run("fal-ai/flux/dev", {
         input: {

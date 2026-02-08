@@ -26,30 +26,21 @@ model User {
 
 model Payment {
   id String @id @default(cuid())
-
   orderId  String @unique
-  provider String // nowpayments | paddle
-
+  provider String 
+  providerEventId String?   @unique
   packageId String // "starter_10", "basic_15" ← ЯК БУЛО
   amount    Float
   currency  String
-
   paymentId   String?
   invoiceUrl  String?
   payAddress  String?
   payAmount   Float?
   payCurrency String?
-
-  paddleCheckoutUrl String?
-  paddleProductId   String?
-  paddleEmail       String?
-
   creditsAdded Boolean @default(false)
   status String // pending | finished | failed
-
   userId String
   user   User @relation(fields: [userId], references: [id])
-
   createdAt DateTime @default(now())
 }
 
