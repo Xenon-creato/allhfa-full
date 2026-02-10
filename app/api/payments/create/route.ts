@@ -40,10 +40,21 @@ export async function POST(req: NextRequest) {
     const orderId = crypto.randomUUID();
     const amount = PRICES[packageId];
 
-    const baseUrl = process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL;
-    if (!baseUrl) {
-      return NextResponse.json({ error: "APP_URL is not set" }, { status: 500 });
+    const baseUrl =
+      process.env.NEXT_PUBLIC_BASE_URL ||
+      process.env.NEXTAUTH_URL ||
+      process.env.VERCEL_URL;
+
+    const normalizedBaseUrl = baseUrl?.startsWith("http")
+      ? baseUrl
+      : baseUrl
+      ? `https://${baseUrl}`
+      : null;
+
+    if (!normalizedBaseUrl) {
+      return NextResponse.json({ error: "Base URL is not set" }, { status: 500 });
     }
+
 
     const npRes = await fetch("https://api.nowpayments.io/v1/invoice", {
       method: "POST",
