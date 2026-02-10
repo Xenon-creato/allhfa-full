@@ -28,25 +28,28 @@ export default function GalleryPage() {
 
     try {
       const url = cursor
-        ? `/api/gallery?cursor=${cursor}`
+        ? `/api/gallery?cursor=${encodeURIComponent(cursor)}`
         : `/api/gallery`;
 
-        const res = await fetch(`/api/image/${selected.id}`, {
-        method: "DELETE",
+      const res = await fetch(url, {
+        method: "GET",
         credentials: "include",
-        });
-
+      });
 
       if (res.status === 401) {
-        // не валимо сторінку
         setHasMore(false);
+        setLoading(false);
         return;
+      }
+
+      if (!res.ok) {
+        throw new Error("Failed to load gallery");
       }
 
       const data = await res.json();
 
-      setImages((prev) => [...prev, ...data.images]);
-      setCursor(data.nextCursor);
+      setImages((prev) => [...prev, ...(data.images ?? [])]);
+      setCursor(data.nextCursor ?? null);
       setHasMore(Boolean(data.nextCursor));
     } catch (err) {
       console.error("Failed to load gallery", err);
@@ -137,7 +140,6 @@ export default function GalleryPage() {
               className="w-full h-full object-cover"
             />
 
-            {/* hover overlay */}
             <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition flex items-end">
               <p className="text-xs text-white p-2 line-clamp-3">
                 {img.prompt}

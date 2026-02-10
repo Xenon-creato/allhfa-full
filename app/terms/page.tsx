@@ -25,8 +25,8 @@ export default function TermsPage() {
 
           <p>
             All payments are processed securely by third-party payment providers,
-            including Stripe, acting as the Merchant of Record. By making a
-            purchase, you agree to Stripe’s Terms and Privacy Policy in addition to
+            including LemonSquezzy, acting as the Merchant of Record. By making a
+            purchase, you agree to LemonSquezzy’s Terms and Privacy Policy in addition to
             these Terms.
           </p>
 

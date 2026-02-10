@@ -24,13 +24,25 @@ export async function DELETE(
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  // витягуємо key з R2 URL
-  const key = image.imageUrl.split(".r2.dev/")[1];
+  // 🔐 Безпечне отримання R2 key
+  let key: string | null = null;
 
-  // 1️⃣ видаляємо з R2
+  try {
+    const url = new URL(image.imageUrl);
+    key = url.pathname.startsWith("/")
+      ? url.pathname.slice(1)
+      : url.pathname;
+  } catch {
+    return NextResponse.json(
+      { error: "Invalid image URL" },
+      { status: 400 }
+    );
+  }
+
+  // 1️⃣ delete from R2
   await deleteImage(key);
 
-  // 2️⃣ видаляємо з БД
+  // 2️⃣ delete from DB
   await prisma.image.delete({
     where: { id },
   });

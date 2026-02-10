@@ -1,8 +1,9 @@
+# *
 User-agent: *
 Allow: /
 
-Disallow: /api/
-Disallow: /admin/
-Disallow: /checkout/
+# Host
+Host: https://allhfa.com
 
+# Sitemaps
 Sitemap: https://allhfa.com/sitemap.xml

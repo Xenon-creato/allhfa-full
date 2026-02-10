@@ -20,43 +20,31 @@ const PRICES: Record<string, number> = {
 
 export async function POST(req: NextRequest) {
   try {
-    // 1️⃣ SESSION
     const session = await getServerSession(authOptions);
-
     if (!session?.user?.email) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // 2️⃣ BODY
     const { packageId } = await req.json();
-
     if (!packageId || !PACKAGES[packageId]) {
-      return NextResponse.json(
-        { error: "Invalid package" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Invalid package" }, { status: 400 });
     }
 
-    // 3️⃣ USER
     const user = await prisma.user.findUnique({
       where: { email: session.user.email },
     });
-
     if (!user) {
-      return NextResponse.json(
-        { error: "User not found" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    // 4️⃣ ORDER DATA
     const orderId = crypto.randomUUID();
     const amount = PRICES[packageId];
 
-    // 5️⃣ CREATE INVOICE IN NOWPAYMENTS
+    const baseUrl = process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL;
+    if (!baseUrl) {
+      return NextResponse.json({ error: "APP_URL is not set" }, { status: 500 });
+    }
+
     const npRes = await fetch("https://api.nowpayments.io/v1/invoice", {
       method: "POST",
       headers: {
@@ -65,27 +53,22 @@ export async function POST(req: NextRequest) {
       },
       body: JSON.stringify({
         price_amount: amount,
-        price_currency: "usd", // ❗ lowercase
+        price_currency: "usd",
         order_id: orderId,
-        order_description: packageId,
-        ipn_callback_url: `${process.env.NEXT_PUBLIC_APP_URL}/api/webhook/crypto`,
-        success_url: `${process.env.NEXT_PUBLIC_APP_URL}/pricing`,
-        cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/pricing`,
+        order_description: `Credits pack: ${packageId}`,
+        ipn_callback_url: `${baseUrl}/api/webhook/crypto`,
+        success_url: `${baseUrl}/pricing`,
+        cancel_url: `${baseUrl}/pricing`,
       }),
     });
 
-    
     const npData = await npRes.json();
 
     if (!npRes.ok || !npData.id || !npData.invoice_url) {
       console.error("NOWPAYMENTS ERROR:", npData);
-      return NextResponse.json(
-        { error: "Payment provider error" },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: "Payment provider error" }, { status: 500 });
     }
 
-    // 6️⃣ SAVE PAYMENT IN DB
     await prisma.payment.create({
       data: {
         orderId,
@@ -94,30 +77,17 @@ export async function POST(req: NextRequest) {
         amount,
         currency: "usd",
         status: "pending",
-
         userId: user.id,
-
         paymentId: String(npData.id),
         invoiceUrl: npData.invoice_url,
-
-        // ⬇️ тимчасові значення (будуть оновлені webhookʼом)
-        payAddress: "",
-        payAmount: amount,
-        payCurrency: "usd",
+        // payAddress/payAmount/payCurrency НЕ задаємо — нехай будуть null
       },
     });
 
-
-    // 7️⃣ RETURN DATA TO FRONTEND
-    return NextResponse.json({
-      orderId,
-      invoiceUrl: npData.invoice_url,
-    });
+    return NextResponse.json({ orderId, invoiceUrl: npData.invoice_url });
   } catch (err) {
     console.error("CREATE PAYMENT ERROR:", err);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
+

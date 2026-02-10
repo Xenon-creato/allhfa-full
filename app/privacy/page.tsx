@@ -23,7 +23,7 @@ export default function PrivacyPage() {
           </p>
 
           <p>
-            Payments are processed by third-party providers, including Stripe,
+            Payments are processed by third-party providers, including LemonSquezzy,
             acting as Merchant of Record. We do not store full payment details such
             as credit card numbers on our servers.
           </p>

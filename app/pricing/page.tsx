@@ -1,8 +1,18 @@
 "use client";
-import { useRouter } from "next/navigation";
-import { useSession } from "next-auth/react";
 
-const PACKAGES = [
+import { useMemo, useState } from "react";
+import { useSession, signIn } from "next-auth/react";
+
+type PackageId = "starter_10" | "basic_15" | "pro_25" | "ultimate_35";
+
+const PACKAGES: Array<{
+  id: PackageId;
+  title: string;
+  price: number;
+  credits: number;
+  desc: string;
+  popular?: boolean;
+}> = [
   { id: "starter_10", title: "Starter", price: 10.5, credits: 80, desc: "Try the service" },
   { id: "basic_15", title: "Basic", price: 15, credits: 160, desc: "For regular users", popular: true },
   { id: "pro_25", title: "Pro", price: 25, credits: 400, desc: "Best value" },
@@ -10,109 +20,166 @@ const PACKAGES = [
 ];
 
 export default function PricingPage() {
-  const { data: session } = useSession();
-  const router = useRouter();
+  const { data: session, status } = useSession();
+  const [loadingId, setLoadingId] = useState<PackageId | null>(null);
+  const [error, setError] = useState<string>("");
 
+  const isAuthed = !!session?.user?.email;
 
-  // Crypto payment
-  const buyWithCrypto = async (packageId: string) => {
-    if (!session) return alert("Please log in first");
+  const popular = useMemo(() => PACKAGES.find((p) => p.popular)?.id ?? "basic_15", []);
+
+  const buy = async (packageId: PackageId) => {
+    setError("");
+
+    if (!isAuthed) {
+      // краще UX, ніж alert
+      await signIn();
+      return;
+    }
 
     try {
+      setLoadingId(packageId);
+
       const res = await fetch("/api/payments/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ packageId }),
       });
 
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
 
-      if (!res.ok || !data.invoiceUrl) {
-        alert("Payment error, try again later");
+      if (!res.ok || !data?.invoiceUrl) {
+        setError(data?.error || "Payment error. Please try again.");
+        setLoadingId(null);
         return;
       }
 
       window.location.href = data.invoiceUrl;
-    } catch (err) {
-      console.error("Crypto BUY ERROR:", err);
-      alert("Network error");
-    }
-  };
-  const buyWithCard = async (packageId: string) => {
-    if (!session) return alert("Please log in first");
-
-    try {
-      const res = await fetch("/api/checkout/lemonsqueezy", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ packageId }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok || !data.url) {
-        alert("Payment error, try again later");
-        return;
-      }
-
-      window.location.href = data.url;
-    } catch (err) {
-      console.error("LemonSqueezy BUY ERROR:", err);
-      alert("Network error");
+    } catch (e) {
+      console.error("BUY ERROR:", e);
+      setError("Network error. Please try again.");
+      setLoadingId(null);
     }
   };
 
   return (
-    <main className="min-h-screen bg-black text-white px-6 py-20">
-      <div className="max-w-3xl mx-auto">
-        <h1 className="text-3xl font-bold text-center mb-3">Buy Credits</h1>
-        <p className="text-zinc-400 text-center">Pay only for what you use. No subscriptions.</p>
-        <p className="text-zinc-400 text-center">Credits can be used to generate AI images. One generation costs 1 credits.</p>
-        <div className="space-y-4 mt-10">
-          {PACKAGES.map((p) => (
-            <div
-              key={p.id}
-              className={`rounded-full border px-6 py-4 ${
-                p.popular ? "bg-zinc-800 border-zinc-700" : "bg-zinc-900 border-zinc-800"
-              }`}
-            >
-              <div className="max-w-3xl mx-auto flex items-center justify-between">
-                {/* LEFT */}
-                <div>
-                  {p.popular && <span className="text-xs text-red-500 font-semibold">MOST POPULAR</span>}
-                  <div className="text-lg font-semibold">{p.title}</div>
-                  <div className="text-sm text-zinc-400">{p.desc}</div>
-                </div>
+    <main className="min-h-screen bg-black text-white">
+      {/* top glow */}
+      <div className="pointer-events-none absolute inset-x-0 top-[-120px] mx-auto h-[280px] max-w-5xl blur-3xl opacity-30"
+           style={{ background: "radial-gradient(closest-side, rgba(59,130,246,.45), transparent)" }} />
 
-                {/* CENTER */}
-                <div className="text-center">
-                  <div className="text-3xl font-bold">${p.price}</div>
-                  <div className="text-sm text-zinc-400">💎 {p.credits} credits</div>
-                </div>
+      <div className="relative mx-auto max-w-5xl px-6 py-16">
+        <div className="flex flex-col items-center text-center">
+          <div className="inline-flex items-center gap-2 rounded-full border border-zinc-800 bg-zinc-950 px-3 py-1 text-xs text-zinc-300">
+            <span className="h-2 w-2 rounded-full bg-emerald-400" />
+            One-time credits · No subscriptions
+          </div>
 
-                {/* RIGHT */}
-                <div className="flex gap-2">
-                  <button
-                    disabled={!session}
-                    onClick={() => buyWithCard(p.id)}
-                    className={`px-4 py-2 rounded-lg font-semibold transition ${
-                      p.popular ? "bg-red-600 hover:bg-red-700" : "bg-zinc-700 hover:bg-zinc-600"
-                    } disabled:opacity-50`}
-                  >
-                    Buy (Card)
-                  </button>
+          <h1 className="mt-5 text-4xl font-bold tracking-tight sm:text-5xl">
+            Buy credits
+          </h1>
 
-                  <button
-                    disabled={!session}
-                    onClick={() => buyWithCrypto(p.id)}
-                    className="px-4 py-2 rounded-lg font-semibold bg-yellow-600 hover:bg-yellow-700 disabled:opacity-50"
-                  >
-                    Buy (Crypto)
-                  </button>
-                </div>
-              </div>
+          <p className="mt-4 max-w-2xl text-zinc-400">
+            Pay with <span className="text-zinc-200">card</span> or <span className="text-zinc-200">crypto</span> via a secure checkout.
+            Credits are added automatically after successful payment.
+          </p>
+
+          <div className="mt-6 flex flex-col items-center gap-2 text-sm text-zinc-400">
+            <div className="rounded-lg border border-zinc-800 bg-zinc-950 px-4 py-2">
+              <span className="text-zinc-200">1 generation</span> = 1 credit
             </div>
-          ))}
+
+            {status === "loading" ? (
+              <span className="text-zinc-500">Checking login…</span>
+            ) : isAuthed ? (
+              <span className="text-zinc-500">Logged in as {session?.user?.email}</span>
+            ) : (
+              <button
+                onClick={() => signIn()}
+                className="text-zinc-200 underline underline-offset-4 hover:text-white"
+              >
+                Sign in to purchase
+              </button>
+            )}
+          </div>
+
+          {error ? (
+            <div className="mt-6 w-full max-w-2xl rounded-xl border border-red-900/50 bg-red-950/30 px-4 py-3 text-left text-sm text-red-200">
+              {error}
+            </div>
+          ) : null}
+        </div>
+
+        {/* packages */}
+        <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+          {PACKAGES.map((p) => {
+            const isPopular = p.id === popular || p.popular;
+            const isLoading = loadingId === p.id;
+
+            return (
+              <div
+                key={p.id}
+                className={[
+                  "relative rounded-2xl border bg-zinc-950/60 p-5 shadow-sm",
+                  isPopular ? "border-zinc-700 ring-1 ring-zinc-700" : "border-zinc-800",
+                ].join(" ")}
+              >
+                {isPopular && (
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-white px-3 py-1 text-xs font-semibold text-black">
+                    MOST POPULAR
+                  </div>
+                )}
+
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="text-lg font-semibold">{p.title}</div>
+                    <div className="mt-1 text-sm text-zinc-400">{p.desc}</div>
+                  </div>
+                </div>
+
+                <div className="mt-5">
+                  <div className="text-3xl font-bold">${p.price}</div>
+                  <div className="mt-1 text-sm text-zinc-400">
+                    <span className="text-zinc-200">💎 {p.credits}</span> credits
+                  </div>
+                </div>
+
+                <ul className="mt-5 space-y-2 text-sm text-zinc-400">
+                  <li className="flex items-center gap-2">
+                    <span className="text-emerald-400">✓</span> Instant access
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <span className="text-emerald-400">✓</span> Card or crypto
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <span className="text-emerald-400">✓</span> Credits auto-added
+                  </li>
+                </ul>
+
+                <button
+                  disabled={!isAuthed || isLoading}
+                  onClick={() => buy(p.id)}
+                  className={[
+                    "mt-6 w-full rounded-xl px-4 py-3 text-sm font-semibold transition",
+                    isPopular
+                      ? "bg-white text-black hover:bg-zinc-200"
+                      : "bg-zinc-800 text-white hover:bg-zinc-700",
+                    (!isAuthed || isLoading) ? "opacity-60 cursor-not-allowed" : "",
+                  ].join(" ")}
+                >
+                  {isLoading ? "Redirecting…" : isAuthed ? "Pay with card / crypto" : "Sign in to buy"}
+                </button>
+
+                <p className="mt-3 text-xs text-zinc-500">
+                  You’ll be redirected to a secure checkout.
+                </p>
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="mt-10 text-center text-xs text-zinc-500">
+          By purchasing, you agree to our Terms and Refund policy.
         </div>
       </div>
     </main>
