@@ -37,5 +37,5 @@ export async function uploadImage({
     })
   )
 
-  return `${process.env.R2_PUBLIC_URL}/${key}`
+  return `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com/${process.env.R2_BUCKET_NAME}/${key}`;
 }
