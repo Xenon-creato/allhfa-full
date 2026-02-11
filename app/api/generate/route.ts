@@ -7,9 +7,16 @@ import { fal, ApiError } from "@fal-ai/client";
 import { rateLimit } from "@/lib/rate-limit";
 export const runtime = "nodejs";
 
-fal.config({ credentials: process.env.FAL_KEY });
 export async function POST(req: Request) {
   const limit = rateLimit(req);
+  const creds = process.env.FAL_KEY || "";
+  console.log("FAL_KEY present:", !!creds);
+  console.log("FAL_KEY hasColon:", creds.includes(":"));
+  console.log("FAL_KEY len:", creds.length);
+  console.log("FAL_KEY prefix:", creds.slice(0, 12)); // безпечно
+
+  fal.config({ credentials: creds });
+
   if (limit) return limit; // якщо ліміт перевищено, поверне 429
   try {
     // ================= AUTH CHECK =================
@@ -70,12 +77,16 @@ export async function POST(req: Request) {
       console.error("Fal.ai Error:", err);
 
       // Якщо 401 або порожній баланс
-      if (err instanceof ApiError && err.status === 401) {
-        return NextResponse.json(
-          { error: "The site is currently not working. Please come back later." },
-          { status: 503 }
-        );
-      }
+    if (err instanceof ApiError) {
+      console.error("Fal ApiError status:", err.status);
+      console.error("Fal ApiError body:", (err as any).body);
+
+      return NextResponse.json(
+        { error: "Fal API error", status: err.status, body: (err as any).body },
+        { status: 503 }
+      );
+    }
+
 
       return NextResponse.json({ error: err.message || "AI generation failed" }, { status: 503 });
     }
