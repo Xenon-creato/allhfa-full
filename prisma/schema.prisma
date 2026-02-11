@@ -14,7 +14,7 @@ model User {
   emailVerified DateTime?
   image         String?
 
-  credits   Int      @default(10)
+  credits   Int      @default(5)
   createdAt DateTime @default(now())
 
   accounts Account[]
