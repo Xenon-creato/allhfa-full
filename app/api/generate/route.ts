@@ -54,16 +54,34 @@ export async function POST(req: Request) {
           image_size: "landscape_4_3",
         },
       });
+      const anyResult: any = result;
+      // покажемо тільки ключі верхнього рівня
+      console.log("FAL result keys:", Object.keys(anyResult || {}));
+
+      // покажемо можливі місця з картинками
+      console.log("FAL result.images:", anyResult?.images);
+      console.log("FAL result.output.images:", anyResult?.output?.images);
+      console.log("FAL result.data.images:", anyResult?.data?.images);
+
+      // (опційно) якщо є error/message
+      console.log("FAL result.error:", anyResult?.error || anyResult?.message);
 
       // ⚠ Fal SDK не має точних типів → приводимо до any
-      const anyResult: any = result;
+
 
       // Перевіряємо на пустий результат або порожній баланс
-      const imageUrl = anyResult?.images?.[0]?.url;
+      const imageUrl =
+        anyResult?.images?.[0]?.url ||
+        anyResult?.output?.images?.[0]?.url ||
+        anyResult?.data?.images?.[0]?.url ||
+        anyResult?.image?.url ||
+        anyResult?.output?.image?.url ||
+        anyResult?.data?.image?.url;
       if (!imageUrl) {
+        console.error("Fal returned no image URL. Full keys:", Object.keys(anyResult || {}));
         return NextResponse.json(
-          { error: "The site is currently not working. Please come back later." },
-          { status: 503 }
+          { error: "Fal returned no image URL" },
+          { status: 502 }
         );
       }
 
