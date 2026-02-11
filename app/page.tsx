@@ -69,12 +69,12 @@ export default function Home() {
       });
 
       const data = await res.json();
-
-      if (!res.ok || !data?.imageUrl) {
+      const imageUrl = data?.image?.imageUrl;
+      if (!res.ok || !imageUrl) {
         throw new Error(data?.error || "Generation failed");
       }
 
-      setImageUrl(data.imageUrl);
+      setImageUrl(imageUrl);
     } catch (err: any) {
       setError(err?.message || "Generation error");
     } finally {
