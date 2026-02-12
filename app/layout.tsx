@@ -2,17 +2,18 @@ import "./globals.css";
 import Providers from "./providers";
 import AppShell from "@/components/AppShell";
 export const metadata = {
-  title: "With our Allhfa, generate anything you want!",
+  title: "Allhfa.ai — AI Image Generator",
   description:
-    "Create AI images with no border. No filters, no censorship. Fast, private, unlimited AI image generation.",
+    "Generate AI images from text in seconds. Private gallery, fast results, and safe use. 18+ only.",
   keywords: [
     "ai image generator",
-    "create ai image no limitation",
-    "uncensored ai image",
-    "ai hentai generator",
-    "create you`r own hentai",
+    "text to image",
+    "ai art generator",
+    "private gallery",
+    "image generation",
   ],
 };
+
 
 export default function RootLayout({
   children,

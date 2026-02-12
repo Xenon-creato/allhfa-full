@@ -5,6 +5,8 @@ import { prisma } from "@/lib/prisma";
 import { uploadImage } from "@/lib/r2";
 import { fal, ApiError } from "@fal-ai/client";
 import { rateLimit } from "@/lib/rate-limit";
+import { validatePrompt } from "@/lib/prompt-validator";
+
 export const runtime = "nodejs";
 
 export async function POST(req: Request) {
@@ -12,11 +14,6 @@ export async function POST(req: Request) {
   if (limit) return limit; // 429
 
   const creds = process.env.FAL_KEY || "";
-  console.log("FAL_KEY present:", !!creds);
-  console.log("FAL_KEY hasColon:", creds.includes(":"));
-  console.log("FAL_KEY len:", creds.length);
-  console.log("FAL_KEY prefix:", creds.slice(0, 12)); // безпечно
-
   // Важливо: конфіг один раз на виклик ок, але можна і винести наверх файла.
   fal.config({ credentials: creds });
 
@@ -30,6 +27,22 @@ export async function POST(req: Request) {
     const { prompt } = await req.json();
     if (!prompt) {
       return NextResponse.json({ error: "Prompt is required" }, { status: 400 });
+    }
+    // ================= PROMPT VALIDATION =================
+    const v = validatePrompt(prompt);
+
+    if (!v.ok) {
+      return NextResponse.json(
+        {
+          error: "Prompt blocked",
+          details: {
+            score: v.score,
+            reasons: v.reasons,
+            blockedBy: v.blockedBy,
+          },
+        },
+        { status: 400 }
+      );
     }
 
     // ================= USER & CREDITS CHECK =================
@@ -60,13 +73,6 @@ export async function POST(req: Request) {
       });
 
       const anyResult: any = result;
-
-      console.log("FAL result keys:", Object.keys(anyResult || {}));
-      console.log("FAL result.images:", anyResult?.images);
-      console.log("FAL result.output.images:", anyResult?.output?.images);
-      console.log("FAL result.data.images:", anyResult?.data?.images);
-      console.log("FAL result.error:", anyResult?.error || anyResult?.message);
-
       // ✅ Найнадійніше місце у твоїх логах: anyResult.data.images[0]
       const img =
         anyResult?.data?.images?.[0] ||
@@ -106,6 +112,16 @@ export async function POST(req: Request) {
 
       const arrayBuffer = await imageRes.arrayBuffer();
       imageBuffer = Buffer.from(arrayBuffer);
+      // ================= CENSORED OUTPUT GUARD =================
+      // Якщо fal повернув "black/placeholder", файл часто дуже маленький (типу 10–30 KB)
+      const MIN_BYTES = 50_000; // 50 KB (можеш підняти до 80_000 якщо треба)
+      if (imageBuffer.length < MIN_BYTES) {
+        return NextResponse.json(
+          { error: "Generation blocked (censored output). Try different prompt." },
+          { status: 422 }
+        );
+      }
+
     } catch (err: any) {
       console.error("Fal.ai Error:", err);
 
